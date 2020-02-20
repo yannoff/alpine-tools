@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+# Custom iconv build script
+#
+# Fixes ICONV library implementation
+# @see https://github.com/docker-library/php/issues/240
+#
+# @package alpine-tools
+# @author  Yannoff <https://github.com/yannoff>
+# @license MIT
+#
+BASE_BUILD_DEPS="autoconf coreutils gcc libc-dev make"
+PKG_BUILD_DEPS="file libtool"
+SOURCE_TARBALL=http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
+SOURCE_PATCH=https://raw.githubusercontent.com/mxe/mxe/7e231efd245996b886b501dad780761205ecf376/src/libiconv-1-fixes.patch
+
+bold="[01m"
+rset="[00m"
+
+printf "\n${bold}%s${rset}\n\n" "Rebuilding ICONV library..."
+# Install temporary build dependencies
+apk add --no-cache --virtual .iconv-build-deps ${BASE_BUILD_DEPS} ${PKG_BUILD_DEPS} && \
+
+# Download sources, apply patch, build and install
+# (could possibly be replaced by:
+#   apk add gnu-libiconv --update-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ --allow-untrusted; \
+# @see https://github.com/wallabag/docker/pull/158/files
+# )
+curl -sSL ${SOURCE_TARBALL} | tar -xz -C . && \
+cd libiconv-1.14 && \
+./configure --prefix=/usr/local && \
+curl -sSL ${SOURCE_PATCH} | patch -p1 -u  && \
+make && make install && \
+libtool --finish /usr/local/lib
+cd .. && \
+rm -rf libiconv-1.14
+
+apk del --no-cache .iconv-build-deps
+
+cat <<EOT
+
+${bold}Installation finished.${rset}
+
+# Dont forget to declare the following environment variable
+# for the fixed version to run properly
+# @see https://github.com/docker-library/php/issues/240
+
+${bold}ENV LD_PRELOAD /usr/local/lib/preloadable_libiconv.so${rset}
+
+EOT

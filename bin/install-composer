@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# Composer & Offenbach installation script
+#
+# @package alpine-tools
+# @author  Yannoff <https://github.com/yannoff>
+# @license MIT
+#
+
+OFFENBACH_BUILD_DEPS="git make"
+COMPOSER_RUN_DEPS=git
+COMPOSER_INSTALLER=https://getcomposer.org/installer
+COMPOSER_SIGNATURE=https://composer.github.io/installer.sig
+
+bold="[01m"
+rset="[00m"
+
+####### Install offenbach
+
+printf "\n${bold}%s${rset}\n\n" "Installing offenbach..."
+
+apk add --no-cache --virtual .offenbach-build-deps ${OFFENBACH_BUILD_DEPS}
+
+# Clone the sources repository
+cd /tmp && git clone https://github.com/yannoff/offenbach.git && cd offenbach
+
+# Build and install
+./configure --bindir /usr/local/bin bin/offenbach && make && make install
+
+# Remove sources
+cd /tmp && rm -rf offenbach
+
+# Remove build dependencies
+apk del --no-cache .offenbach-build-deps
+
+
+####### Install composer
+
+printf "\n${bold}%s${rset}\n\n" "Installing composer..."
+
+# Download composer-setup.php & check for file integrity
+curl -sSL ${COMPOSER_INSTALLER} -o composer-setup.php
+
+# Check composer installer integrity against remote signature file
+ACTUAL_SIG=`php -r "echo hash_file('sha384', 'composer-setup.php');"`
+EXPECTED_SIG=`curl -s ${COMPOSER_SIGNATURE} | tr -d "\n"`
+
+# If signature hash is correct, proceed to install
+if [ "$ACTUAL_SIG" = "$EXPECTED_SIG" ]
+then
+    php composer-setup.php --filename=composer --install-dir=/usr/bin
+else
+    echo "[composer] Error: signatures does not match!"
+fi
+
+# Remove composer installer
+rm composer-setup.php
+
+# When the container is run as an unknown user (e.g 1000), COMPOSER_HOME defaults to /.composer
+mkdir /.composer && chmod 0777 /.composer
+
+# Install runtime dependencies
+apk add --no-cache ${COMPOSER_RUN_DEPS}

@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# Installer script for musl-locales
+# @see https://github.com/gliderlabs/docker-alpine/issues/144
+#
+# @package alpine-tools
+# @author  Yannoff <https://github.com/yannoff>
+# @license MIT
+#
+
+PKG_URL=https://codeload.github.com/rilian-la-te/musl-locales/zip/master
+
+MAIN_BUILD_DEPS=( autoconf coreutils gcc libc-dev make )
+PKG_BUILD_DEPS=( cmake musl-dev gettext-dev )
+PKG_RUN_DEPS=( libintl )
+
+bold="[01m"
+rset="[00m"
+
+printf "\n${bold}%s${rset}\n\n" "Installing musl-locales..."
+
+# Install temporary build dependencies
+apk add --no-cache --virtual .locale-build-deps ${MAIN_BUILD_DEPS[@]} ${PKG_BUILD_DEPS[@]}
+
+# Build musl-locales package from source & install it
+cd /tmp && curl --output musl-locales-master.zip ${PKG_URL}
+unzip musl-locales-master.zip && cd musl-locales-master 
+cmake . && make && make install
+cd .. && rm -rf /tmp/musl-locales-master*
+
+# Cleanup: remove build dependencies
+apk del --no-cache .locale-build-deps
+
+# Install runtime dependencies
+apk add --no-cache ${PKG_RUN_DEPS[@]}
+
+cat <<EOT
+
+${bold}Installation finished.${rset}
+
+# Dont forget to declare the following environment variable
+# for the locales to run properly
+
+${bold}ENV MUSL_LOCPATH /usr/local/share/i18n/locales/musl${rset}
+
+EOT
