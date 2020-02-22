@@ -14,25 +14,39 @@ MAIN_BUILD_DEPS=( autoconf coreutils gcc libc-dev make )
 PKG_BUILD_DEPS=( cmake musl-dev gettext-dev )
 PKG_RUN_DEPS=( libintl )
 
+if test -n "${VERBOSE}"
+then
+    OUTPUT=/dev/stdout
+else
+    OUTPUT=/dev/null
+fi
+
 bold="[01m"
 rset="[00m"
 
 printf "\n${bold}%s${rset}\n\n" "Installing musl-locales..."
 
 # Install temporary build dependencies
-apk add --no-cache --virtual .locale-build-deps ${MAIN_BUILD_DEPS[@]} ${PKG_BUILD_DEPS[@]}
+apk add --no-cache --virtual .locale-build-deps ${MAIN_BUILD_DEPS[@]} ${PKG_BUILD_DEPS[@]} >${OUTPUT}
 
 # Build musl-locales package from source & install it
-cd /tmp && curl --output musl-locales-master.zip ${PKG_URL}
-unzip musl-locales-master.zip && cd musl-locales-master 
-cmake . && make && make install
-cd .. && rm -rf /tmp/musl-locales-master*
+{
+    cd /tmp && \
+    curl -sSL --output musl-locales-master.zip ${PKG_URL}
+    unzip musl-locales-master.zip && \
+    cd musl-locales-master 
+    cmake . && \
+    make && \
+    make install
+    cd .. && \
+    rm -rf /tmp/musl-locales-master*
+} >${OUTPUT}
 
 # Cleanup: remove build dependencies
-apk del --no-cache .locale-build-deps
+apk del --no-cache .locale-build-deps >${OUTPUT}
 
 # Install runtime dependencies
-apk add --no-cache ${PKG_RUN_DEPS[@]}
+apk add --no-cache ${PKG_RUN_DEPS[@]} >${OUTPUT}
 
 cat <<EOT
 

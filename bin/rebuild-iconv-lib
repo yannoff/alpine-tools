@@ -14,28 +14,40 @@ PKG_BUILD_DEPS="file libtool"
 SOURCE_TARBALL=http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
 SOURCE_PATCH=https://raw.githubusercontent.com/mxe/mxe/7e231efd245996b886b501dad780761205ecf376/src/libiconv-1-fixes.patch
 
+if test -n "${VERBOSE}"
+then
+    OUTPUT=/dev/stdout
+else
+    OUTPUT=/dev/null
+fi
+
 bold="[01m"
 rset="[00m"
 
 printf "\n${bold}%s${rset}\n\n" "Rebuilding ICONV library..."
+
 # Install temporary build dependencies
-apk add --no-cache --virtual .iconv-build-deps ${BASE_BUILD_DEPS} ${PKG_BUILD_DEPS} && \
+apk add --no-cache --virtual .iconv-build-deps ${BASE_BUILD_DEPS} ${PKG_BUILD_DEPS} >${OUTPUT} && \
 
 # Download sources, apply patch, build and install
 # (could possibly be replaced by:
 #   apk add gnu-libiconv --update-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ --allow-untrusted; \
 # @see https://github.com/wallabag/docker/pull/158/files
 # )
-curl -sSL ${SOURCE_TARBALL} | tar -xz -C . && \
-cd libiconv-1.14 && \
-./configure --prefix=/usr/local && \
-curl -sSL ${SOURCE_PATCH} | patch -p1 -u  && \
-make && make install && \
-libtool --finish /usr/local/lib
-cd .. && \
-rm -rf libiconv-1.14
+{ 
+    curl -sSL ${SOURCE_TARBALL} | tar -xz -C . && \
+    cd libiconv-1.14 && \
+    ./configure --prefix=/usr/local && \
+    curl -sSL ${SOURCE_PATCH} | patch -p1 -u  && \
+    make && \
+    make install && \
+    libtool --finish /usr/local/lib
+    cd .. && \
+    rm -rf libiconv-1.14
+} >${OUTPUT} 2>&1
 
-apk del --no-cache .iconv-build-deps
+# Cleanup: remove libiconv build dependencies
+apk del --no-cache .iconv-build-deps >${OUTPUT}
 
 cat <<EOT
 

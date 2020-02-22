@@ -9,8 +9,16 @@
 
 OFFENBACH_BUILD_DEPS="git make"
 COMPOSER_RUN_DEPS=git
+OFFENBACH_REPOSITORY=https://github.com/yannoff/offenbach.git
 COMPOSER_INSTALLER=https://getcomposer.org/installer
 COMPOSER_SIGNATURE=https://composer.github.io/installer.sig
+
+if test -n "${VERBOSE}"
+then
+    OUTPUT=/dev/stdout
+else
+    OUTPUT=/dev/null
+fi
 
 bold="[01m"
 rset="[00m"
@@ -19,19 +27,23 @@ rset="[00m"
 
 printf "\n${bold}%s${rset}\n\n" "Installing offenbach..."
 
-apk add --no-cache --virtual .offenbach-build-deps ${OFFENBACH_BUILD_DEPS}
+apk add --no-cache --virtual .offenbach-build-deps ${OFFENBACH_BUILD_DEPS} >${OUTPUT}
 
 # Clone the sources repository
-cd /tmp && git clone https://github.com/yannoff/offenbach.git && cd offenbach
+cd /tmp && \
+git clone ${OFFENBACH_REPOSITORY} 2>${OUTPUT} && \
+cd offenbach
 
 # Build and install
-./configure --bindir /usr/local/bin bin/offenbach && make && make install
+./configure --bindir /usr/local/bin bin/offenbach && \
+make >${OUTPUT} && \
+make install >${OUTPUT}
 
 # Remove sources
 cd /tmp && rm -rf offenbach
 
 # Remove build dependencies
-apk del --no-cache .offenbach-build-deps
+apk del --no-cache .offenbach-build-deps >${OUTPUT}
 
 
 ####### Install composer
@@ -48,7 +60,7 @@ EXPECTED_SIG=`curl -s ${COMPOSER_SIGNATURE} | tr -d "\n"`
 # If signature hash is correct, proceed to install
 if [ "$ACTUAL_SIG" = "$EXPECTED_SIG" ]
 then
-    php composer-setup.php --filename=composer --install-dir=/usr/bin
+    php composer-setup.php --filename=composer --install-dir=/usr/bin 2>${OUTPUT}
 else
     echo "[composer] Error: signatures does not match!"
 fi
@@ -57,7 +69,7 @@ fi
 rm composer-setup.php
 
 # When the container is run as an unknown user (e.g 1000), COMPOSER_HOME defaults to /.composer
-mkdir /.composer && chmod 0777 /.composer
+mkdir /.composer 2>${OUTPUT} && chmod 0777 /.composer
 
 # Install runtime dependencies
-apk add --no-cache ${COMPOSER_RUN_DEPS}
+apk add --no-cache ${COMPOSER_RUN_DEPS} >${OUTPUT}
